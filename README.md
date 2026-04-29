@@ -1,8 +1,8 @@
 # ux — Better Python Tool Runner
 
 <p align="center">
-  <a href="https://github.com/nom-nom-hub/ux-tools/actions">
-    <img src="https://img.shields.io/github/actions/status/nom-nom-hub/ux-tools/main?style=flat-square" alt="CI">
+  <a href="https://github.com/nom-nom-hub/ux-tools/actions/workflows/release.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nom-nom-hub/ux-tools/release.yml?style=flat-square" alt="CI">
   </a>
   <a href="https://github.com/nom-nom-hub/ux-tools/releases">
     <img src="https://img.shields.io/github/v/release/nom-nom-hub/ux-tools?style=flat-square" alt="Version">
