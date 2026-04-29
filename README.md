@@ -32,38 +32,33 @@
 
 ## Installation
 
-### macOS / Linux
+### One-liner (recommended)
 
 ```bash
-# Build from source
-cargo build --release
+# Install with a single command
+curl -LsSf https://raw.githubusercontent.com/nom-nom-hub/ux-tools/main/install.sh | sh
+```
 
-# Install
-cp target/release/ux ~/.local/bin/ux
-# Or use the install script:
-./ux-tools/install.sh
+### Manual Install
+
+```bash
+# Download the latest release for your platform
+curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')-gnu -o ~/.local/bin/ux
+chmod +x ~/.local/bin/ux
 
 # Add to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-### Pre-built Binary
-
-Download the latest release for your platform:
+### Build from Source
 
 ```bash
-# macOS (Apple Silicon)
-curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-aarch64-apple-darwin -o ~/.local/bin/ux
-chmod +x ~/.local/bin/ux
-
-# macOS (Intel)
-curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-x86_64-apple-darwin -o ~/.local/bin/ux
-chmod +x ~/.local/bin/ux
-
-# Linux
-curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-x86_64-unknown-linux-gnu -o ~/.local/bin/ux
-chmod +x ~/.local/bin/ux
-```
+# Clone and build
+git clone https://github.com/nom-nom-hub/ux-tools
+cd ux-tools
+cargo build --release
+cp target/release/ux ~/.local/bin/ux
 
 ## Quick Start
 
