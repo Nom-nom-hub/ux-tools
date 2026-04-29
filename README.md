@@ -4,9 +4,6 @@
   <a href="https://github.com/nom-nom-hub/ux-tools/actions">
     <img src="https://img.shields.io/github/actions/status/nom-nom-hub/ux-tools/main?style=flat-square" alt="CI">
   </a>
-  <a href="https://crates.io/crates/ux">
-    <img src="https://img.shields.io/crates/d/ux?style=flat-square" alt="Downloads">
-  </a>
   <a href="https://github.com/nom-nom-hub/ux-tools/releases">
     <img src="https://img.shields.io/github/v/release/nom-nom-hub/ux-tools?style=flat-square" alt="Version">
   </a>
@@ -35,15 +32,14 @@
 ### One-liner (recommended)
 
 ```bash
-# Install with a single command
 curl -LsSf https://raw.githubusercontent.com/nom-nom-hub/ux-tools/main/install.sh | sh
 ```
 
-### Manual Install
+### Direct Download
 
 ```bash
-# Download the latest release for your platform
-curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')-gnu -o ~/.local/bin/ux
+# macOS (Apple Silicon)
+curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux -o ~/.local/bin/ux
 chmod +x ~/.local/bin/ux
 
 # Add to PATH
@@ -54,7 +50,6 @@ source ~/.zshrc
 ### Build from Source
 
 ```bash
-# Clone and build
 git clone https://github.com/nom-nom-hub/ux-tools
 cd ux-tools
 cargo build --release

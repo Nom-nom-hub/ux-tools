@@ -26,7 +26,7 @@ install() {
         exit 1
     fi
 
-    local url="https://github.com/nom-nom-hub/ux-tools/releases/latest/download/ux-${os}"
+    local url="https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux"
     
     echo "Installing ux for ${os}..."
     
