@@ -29,8 +29,8 @@ struct Cli {
     #[arg(long, global = true)]
     offline: bool,
 
-    #[arg(long, global = true)]
-    use_uv: bool,
+    #[arg(long, global = true, short = 'f')]
+    fast: bool,
 
     #[arg(long, global = true, short = 'u')]
     update: bool,
@@ -227,11 +227,17 @@ async fn main() -> Result<()> {
                     } else {
                         anyhow::bail!("Tool not cached: {}", resolved);
                     }
-                } else if cli.use_uv {
+                } else if cli.fast {
                     let client = PypiClient::new();
                     let (_name, version) = client.get_package(&resolved).await?;
-                    println!("Resolving {} v{}", resolved, version);
-                    let exit_code = runner.run_with_uv(&resolved, &cli.args).await?;
+                    println!("Installing {} v{} (fast mode)", resolved, version);
+
+                    match runner.warm_fast(&resolved).await {
+                        Ok(info) => println!("Installed {}", info.version),
+                        Err(e) => eprintln!("Install failed: {}", e),
+                    }
+
+                    let exit_code = runner.run_tool(&resolved, &cli.args).await?;
                     std::process::exit(exit_code);
                 } else {
                     let client = PypiClient::new();
@@ -259,7 +265,8 @@ async fn main() -> Result<()> {
                 println!("  ux --check-updates # Check for updates");
                 println!();
                 println!("Options:");
-                println!("  --use-uv           # Delegate to uv (faster)");
+                println!("  --use-uv           # Use uv (fastest)");
+                println!("  --fast, -f        # Use parallel pip (fast)");
                 println!("  --offline         # Run only from cache");
                 println!("  --update, -u      # Auto-update tools");
                 println!("  --check-updates, -c # Check for available updates");

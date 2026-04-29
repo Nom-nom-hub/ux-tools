@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
+use tokio::time::{Duration, timeout};
 
 pub struct Runner {
     cache_dir: PathBuf,
@@ -45,7 +46,10 @@ impl Runner {
 
     pub async fn create_venv(&self, path: &PathBuf, python: &str) -> Result<()> {
         if path.exists() {
-            return Ok(());
+            let bin_py = path.join("bin/python");
+            if bin_py.exists() {
+                return Ok(());
+            }
         }
 
         tokio::fs::create_dir_all(path).await?;
@@ -64,11 +68,17 @@ impl Runner {
         Ok(())
     }
 
-    pub async fn install_package(&self, venv: &PathBuf, package: &str) -> Result<String> {
+    pub async fn install_package_parallel(&self, venv: &PathBuf, package: &str) -> Result<String> {
         let pip = venv.join("bin/pip");
 
         let output = Command::new(pip.to_str().unwrap())
-            .args(["install", package, "--quiet"])
+            .args([
+                "install",
+                package,
+                "--quiet",
+                "--no-cache-dir",
+                "--prefer-binary",
+            ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
@@ -81,6 +91,51 @@ impl Runner {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    pub async fn install_with_deps(&self, venv: &PathBuf, package: &str) -> Result<String> {
+        let pip = venv.join("bin/pip");
+
+        let output = Command::new(pip.to_str().unwrap())
+            .args([
+                "install",
+                package,
+                "--quiet",
+                "--no-cache-dir",
+                "--prefer-binary",
+                "--only-binary=:all:",
+                "--no-deps",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+            .context("Failed to install package")?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        } else {
+            let output = Command::new(pip.to_str().unwrap())
+                .args([
+                    "install",
+                    package,
+                    "--quiet",
+                    "--no-cache-dir",
+                    "--prefer-binary",
+                ])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+                .await
+                .context("Failed to install package")?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("Failed to install {}: {}", package, stderr);
+            }
+
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        }
     }
 
     pub async fn warm(&self, tool: &str) -> Result<CacheInfo> {
@@ -99,7 +154,36 @@ impl Runner {
 
         self.create_venv(&venv_dir, &python).await?;
         
-        let output = self.install_package(&venv_dir, tool).await?;
+        let output = self.install_with_deps(&venv_dir, tool).await?;
+        if output.is_empty() {
+            eprintln!("Installed {}", tool);
+        } else {
+            eprintln!("{}", output);
+        }
+
+        Ok(CacheInfo {
+            tool: tool.to_string(),
+            version: "installed".to_string(),
+        })
+    }
+
+    pub async fn warm_fast(&self, tool: &str) -> Result<CacheInfo> {
+        let python = self.find_python().await?;
+        let venv_dir = self.venv_dir(tool);
+
+        if venv_dir.exists() {
+            let bin_py = venv_dir.join("bin/python");
+            if bin_py.exists() {
+                return Ok(CacheInfo {
+                    tool: tool.to_string(),
+                    version: "cached".to_string(),
+                });
+            }
+        }
+
+        self.create_venv(&venv_dir, &python).await?;
+        
+        let output = self.install_package_parallel(&venv_dir, tool).await?;
         if output.is_empty() {
             eprintln!("Installed {}", tool);
         } else {
@@ -139,9 +223,7 @@ impl Runner {
         let output = Command::new(bin_dir.join("python").to_str().unwrap())
             .args([
                 "-c",
-                &format!(
-                    "import importlib.metadata; print('\\n'.join(importlib.metadata.entry_points().get('console_scripts', [])))"
-                ),
+                "import importlib.metadata; print('\\n'.join(importlib.metadata.entry_points().get('console_scripts', [])))",
             ])
             .output()
             .await?;
@@ -182,23 +264,6 @@ impl Runner {
             .first()
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No executables found"))
-    }
-
-    pub async fn run_with_uv(&self, package: &str, args: &[String]) -> Result<i32> {
-        let mut cmd = tokio::process::Command::new("uv");
-        cmd.arg("tool");
-        cmd.arg("run");
-        cmd.arg(package);
-        cmd.args(args);
-
-        let status = cmd
-            .spawn()?
-            .wait()
-            .await?
-            .code()
-            .unwrap_or(1);
-
-        Ok(status)
     }
 
     pub async fn update(&self, tool: &str) -> Result<String> {
@@ -257,7 +322,7 @@ impl Runner {
         let pip = venv.join("bin/pip");
 
         let output = tokio::process::Command::new(pip.to_str().unwrap())
-            .args(["install", "--upgrade", package, "--quiet"])
+            .args(["install", "--upgrade", package, "--quiet", "--prefer-binary"])
             .output()
             .await?;
 
