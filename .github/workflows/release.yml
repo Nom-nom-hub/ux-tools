@@ -28,9 +28,11 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
-        run: |
-          cargo build --release --locked
-          mv target/release/ux ux-${{ matrix.target }}
+        working-directory: ux-tools
+        run: cargo build --release --locked
+
+      - name: Rename
+        run: mv ux-tools/target/release/ux ux-${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-release-asset@v1
@@ -41,16 +43,3 @@ jobs:
           asset_path: ./ux-${{ matrix.target }}
           asset_name: ux-${{ matrix.target }}
           asset_content_type: application/octet-stream
-
-      - name: Create tarball
-        run: tar -czf ux-${{ matrix.target }}.tar.gz ux-${{ matrix.target }}
-
-      - name: Upload tarball
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.api_url }}/repos/${{ github.repository }}/releases/${{ github.event.release.id }}
-          asset_path: ./ux-${{ matrix.target }}.tar.gz
-          asset_name: ux-${{ matrix.target }}.tar.gz
-          asset_content_type: application/gzip
