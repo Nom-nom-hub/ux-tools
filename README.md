@@ -1,17 +1,6 @@
 # ux — Better Python Tool Runner
 
-<p align="center">
-  <a href="https://github.com/nom-nom-hub/ux-tools/releases/tag/v0.1.0">
-    <img src="https://img.shields.io/github/v/release/nom-nom-hub/ux-tools/v0.1.0" alt="Version">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/nom-nom-hub/ux-tools" alt="License">
-  </a>
-</p>
-
-<p align="center">
-  A faster, smarter Python tool runner that improves on uvx with pre-warmed caches, native venvs, and multiple sources.
-</p>
+A faster, smarter Python tool runner that improves on uvx with pre-warmed caches, native venvs, and multiple sources.
 
 ## Why ux?
 
@@ -22,7 +11,6 @@
 | PyPI | ✅ | ✅ |
 | GitHub/Gist/URL | ❌ | ✅ |
 | Offline mode | ❌ | ✅ |
-| Single binary | ❌ | ✅ |
 
 ## Installation
 
@@ -36,8 +24,10 @@ curl -LsSf https://raw.githubusercontent.com/nom-nom-hub/ux-tools/main/install.s
 
 ```bash
 # macOS (Apple Silicon)
-curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux -o ~/.local/bin/ux
-chmod +x ~/.local/bin/ux
+curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux-aarch64-apple-darwin.tar.gz | tar -xzf - -C ~/.local/bin
+
+# Linux
+curl -LsSf https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux-x86_64-unknown-linux-gnu.tar.gz | tar -xzf - -C ~/.local/bin
 
 # Add to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
@@ -51,6 +41,7 @@ git clone https://github.com/nom-nom-hub/ux-tools
 cd ux-tools
 cargo build --release
 cp target/release/ux ~/.local/bin/ux
+```
 
 ## Quick Start
 
@@ -90,7 +81,7 @@ ux cache clean           # Clear all cache
 
 ## Multiple Sources
 
-In addition to PyPI packages, ux supports:
+In addition to PyPI packages:
 
 ```bash
 # PyPI (default)
@@ -150,9 +141,3 @@ cp target/release/ux ~/.local/bin/
 ## License
 
 Apache-2.0 — See [LICENSE](LICENSE)
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/nom-nom-hub">@nom-nom-hub</a>
-</p>
