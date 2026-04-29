@@ -26,11 +26,17 @@ struct Cli {
     #[arg(global = true, short, long)]
     verbose: bool,
 
-    #[arg(long)]
+    #[arg(long, global = true)]
     offline: bool,
 
-    #[arg(long)]
+    #[arg(long, global = true)]
     use_uv: bool,
+
+    #[arg(long, global = true, short = 'u')]
+    update: bool,
+
+    #[arg(long, global = true, short = 'c')]
+    check_updates: bool,
 }
 
 #[derive(Subcommand)]
@@ -45,6 +51,19 @@ enum Commands {
         #[command(subcommand)]
         command: CacheCommands,
     },
+    Alias {
+        #[command(subcommand)]
+        command: AliasCommands,
+    },
+    Update {
+        tool: Option<String>,
+
+        #[arg(long)]
+        all: bool,
+
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
     Version,
 }
 
@@ -55,6 +74,21 @@ enum CacheCommands {
         tool: String,
     },
     Clean,
+    Prune,
+    Stats,
+}
+
+#[derive(Subcommand)]
+enum AliasCommands {
+    Add {
+        alias: String,
+
+        tool: String,
+    },
+    Rm {
+        alias: String,
+    },
+    Ls,
 }
 
 #[tokio::main]
@@ -69,8 +103,8 @@ async fn main() -> Result<()> {
         .init();
 
     let mut cache = ToolCache::new()?;
-    let cache_dir = cache.cache_dir();
-    let runner = Runner::new(cache_dir.to_path_buf());
+    let cache_dir = cache.cache_dir().to_path_buf();
+    let runner = Runner::new(cache_dir);
 
     match cli.command {
         Some(Commands::Warm { tool, all }) => {
@@ -123,45 +157,94 @@ async fn main() -> Result<()> {
                 cache.clear()?;
                 println!("Cache cleaned");
             }
+            CacheCommands::Prune => {
+                let removed = cache.prune_old()?;
+                println!("Removed {} old entries", removed);
+            }
+            CacheCommands::Stats => {
+                cache.print_stats()?;
+            }
+        },
+        Some(Commands::Alias { command }) => match command {
+            AliasCommands::Add { alias, tool } => {
+                cache.add_alias(&alias, &tool)?;
+                println!("Added alias: {} -> {}", alias, tool);
+            }
+            AliasCommands::Rm { alias } => {
+                cache.remove_alias(&alias)?;
+                println!("Removed alias: {}", alias);
+            }
+            AliasCommands::Ls => {
+                cache.list_aliases();
+            }
+        },
+        Some(Commands::Update { tool, all, yes }) => {
+            if all {
+                info!("Updating all tools");
+                let entries = cache.list_entries();
+                for entry in entries {
+                    print!("Updating {}... ", entry.tool);
+                    match runner.update(&entry.tool).await {
+                        Ok(v) => println!("updated to {}", v),
+                        Err(e) => println!("failed: {}", e),
+                    }
+                }
+                println!("Done");
+            } else if let Some(t) = tool {
+                info!("Updating tool: {}", t);
+                println!("Updating: {}...", t);
+                let new_version = runner.update(&t).await?;
+                println!("Updated to {}", new_version);
+            } else {
+                anyhow::bail!("Specify a tool or --all");
+            }
         },
         Some(Commands::Version) => {
             println!("ux v{}", env!("CARGO_PKG_VERSION"));
         }
         None => {
+            if cli.check_updates {
+                let updates = runner.check_all_updates().await?;
+                if updates.is_empty() {
+                    println!("All tools up to date");
+                } else {
+                    println!("Updates available:");
+                    for (tool, old_v, new_v) in updates {
+                        println!("  {}: {} -> {}", tool, old_v, new_v);
+                    }
+                }
+                return Ok(());
+            }
+
             if let Some(tool) = cli.tool {
-                let mut parts = tool.splitn(2, '@');
-                let (name, _version) = match (parts.next(), parts.next()) {
-                    (Some(n), Some(v)) => (n.to_string(), Some(v)),
-                    (Some(n), None) => (n.to_string(), None),
-                    _ => anyhow::bail!("Invalid tool specification"),
-                };
+                let resolved = tool.as_str();
 
                 if cli.offline {
-                    if cache.has_cached(&name) {
-                        info!("Running {} from cache", name);
-                        let exit_code = runner.run_tool(&name, &cli.args).await?;
+                    if cache.has_cached(&resolved) {
+                        info!("Running {} from cache", resolved);
+                        let exit_code = runner.run_tool(&resolved, &cli.args).await?;
                         std::process::exit(exit_code);
                     } else {
-                        anyhow::bail!("Tool not cached: {}", name);
+                        anyhow::bail!("Tool not cached: {}", resolved);
                     }
                 } else if cli.use_uv {
                     let client = PypiClient::new();
-                    let (_name, version) = client.get_package(&name).await?;
-                    println!("Resolving {} v{}", name, version);
-                    let exit_code = runner.run_with_uv(&name, &cli.args).await?;
+                    let (_name, version) = client.get_package(&resolved).await?;
+                    println!("Resolving {} v{}", resolved, version);
+                    let exit_code = runner.run_with_uv(&resolved, &cli.args).await?;
                     std::process::exit(exit_code);
                 } else {
                     let client = PypiClient::new();
-                    let (_name, version) = client.get_package(&name).await?;
-                    println!("Resolving {} v{}", name, version);
+                    let (_name, version) = client.get_package(&resolved).await?;
+                    println!("Resolving {} v{}", resolved, version);
                     println!("Installing...");
 
-                    match runner.warm(&name).await {
+                    match runner.warm(&resolved).await {
                         Ok(info) => println!("Installed {}", info.version),
                         Err(e) => eprintln!("Install failed: {}", e),
                     }
 
-                    let exit_code = runner.run_tool(&name, &cli.args).await?;
+                    let exit_code = runner.run_tool(&resolved, &cli.args).await?;
                     std::process::exit(exit_code);
                 }
             } else {
@@ -173,10 +256,13 @@ async fn main() -> Result<()> {
                 println!("  ux warm --all       # Pre-warm all cached tools");
                 println!("  ux cache ls         # List cached tools");
                 println!("  ux cache rm <tool> # Remove a cached tool");
+                println!("  ux --check-updates # Check for updates");
                 println!();
                 println!("Options:");
                 println!("  --use-uv           # Delegate to uv (faster)");
                 println!("  --offline         # Run only from cache");
+                println!("  --update, -u      # Auto-update tools");
+                println!("  --check-updates, -c # Check for available updates");
                 println!();
                 println!("Examples:");
                 println!("  ux ruff .");

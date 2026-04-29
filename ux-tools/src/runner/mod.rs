@@ -200,6 +200,79 @@ impl Runner {
 
         Ok(status)
     }
+
+    pub async fn update(&self, tool: &str) -> Result<String> {
+        let venv_dir = self.venv_dir(tool);
+        if !venv_dir.exists() {
+            anyhow::bail!("Tool not installed: {}", tool);
+        }
+
+        let new_version = self.upgrade_package(&venv_dir, tool).await?;
+        Ok(new_version)
+    }
+
+    pub async fn check_tool_updates(&self, tool: &str) -> Result<(String, String)> {
+        let client = reqwest::Client::new();
+        let url = format!("https://pypi.org/pypi/{}/json", tool);
+        
+        let response = client.get(&url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            anyhow::bail!("Package not found: {}", tool);
+        }
+
+        let data: serde_json::Value = response.json().await?;
+        let new_version = data["info"]["version"].as_str().unwrap_or("unknown");
+
+        Ok(("current".to_string(), new_version.to_string()))
+    }
+
+    pub async fn check_all_updates(&self) -> Result<Vec<(String, String, String)>> {
+        let mut updates = vec![];
+        
+        let venvs_dir = self.cache_dir.join("venvs");
+        if !venvs_dir.exists() {
+            return Ok(updates);
+        }
+
+        let client = reqwest::Client::new();
+
+        if let Ok(entries) = std::fs::read_dir(&venvs_dir) {
+            for entry in entries.flatten() {
+                let tool = entry.file_name().to_string_lossy().to_string();
+                
+                let url = format!("https://pypi.org/pypi/{}/json", tool);
+                if let Ok(response) = client.get(&url).send().await {
+                    if let Ok(data) = response.json::<serde_json::Value>().await {
+                        let new_version = data["info"]["version"].as_str().unwrap_or("unknown");
+                        updates.push((tool, "current".to_string(), new_version.to_string()));
+                    }
+                }
+            }
+        }
+
+        Ok(updates)
+    }
+
+    async fn upgrade_package(&self, venv: &PathBuf, package: &str) -> Result<String> {
+        let pip = venv.join("bin/pip");
+
+        let output = tokio::process::Command::new(pip.to_str().unwrap())
+            .args(["install", "--upgrade", package, "--quiet"])
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to upgrade {}: {}", package, stderr);
+        }
+
+        let client = reqwest::Client::new();
+        let url = format!("https://pypi.org/pypi/{}/json", package);
+        
+        let response = client.get(&url).send().await?;
+        let data: serde_json::Value = response.json().await?;
+        Ok(data["info"]["version"].as_str().unwrap_or("unknown").to_string())
+    }
 }
 
 #[derive(Debug, Clone)]
