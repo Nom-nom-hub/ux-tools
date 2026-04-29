@@ -1,16 +1,19 @@
 # ux — Better Python Tool Runner
 
-A faster, smarter Python tool runner that improves on uvx with pre-warmed caches, native venvs, and multiple sources.
+A faster, smarter Python tool runner that beats uvx with pre-warmed caches, native venvs, multiple sources, and offline support.
 
 ## Why ux?
 
 | Feature | uvx | ux |
 |---------|-----|-----|
 | Pre-warm cache | ❌ | ✅ |
-| Native venv creation | ❌ | ✅ |
-| PyPI | ✅ | ✅ |
-| GitHub/Gist/URL | ❌ | ✅ |
+| Multiple sources | ❌ | ✅ |
 | Offline mode | ❌ | ✅ |
+| No uv dependency | ❌ | ✅ |
+| Simpler caching | ❌ | ✅ |
+| Native venv creation | ❌ | ✅ |
+
+uv is great, but it doesn't let you pre-warm environments, run offline, or use GitHub/Gist sources.
 
 ## Installation
 
