@@ -2,18 +2,19 @@
 set -e
 
 INSTALL_DIR="${HOME}/.local/bin"
-VERSION="v0.1.0"
+REPO="nom-nom-hub/ux-tools"
+TAG="v0.1.0"
 
 get_os() {
     case "$(uname -s)" in
-        Linux*)  echo "unknown-linux-gnu" ;;
+        Linux*)  echo "x86_64-unknown-linux-gnu" ;;
         Darwin*)
             case "$(uname -m)" in
                 arm64|aarch64) echo "aarch64-apple-darwin" ;;
                 *)          echo "x86_64-apple-darwin" ;;
             esac
             ;;
-        *)      echo "unknown" ;;
+        *)      echo "" ;;
     esac
 }
 
@@ -21,21 +22,21 @@ install() {
     local os
     os="$(get_os)"
     
-    if [ "$os" = "unknown" ]; then
+    if [ -z "$os" ]; then
         echo "Error: Unsupported OS" >&2
         exit 1
     fi
 
-    local url="https://github.com/nom-nom-hub/ux-tools/releases/download/v0.1.0/ux"
+    local url="https://github.com/${REPO}/releases/download/${TAG}/ux-${os}.tar.gz"
     
-    echo "Installing ux for ${os}..."
+    echo "Downloading ux ${TAG} for ${os}..."
     
     mkdir -p "$INSTALL_DIR"
     
     if command -v curl >/dev/null 2>&1; then
-        curl -LsSf "$url" -o "${INSTALL_DIR}/ux"
+        curl -LsSf "$url" | tar -xzf - -C "$INSTALL_DIR"
     elif command -v wget >/dev/null 2>&1; then
-        wget -q "$url" -O "${INSTALL_DIR}/ux"
+        wget -qO- "$url" | tar -xzf - -C "$INSTALL_DIR"
     else
         echo "Error: Neither curl nor wget found" >&2
         exit 1
@@ -45,25 +46,17 @@ install() {
     
     echo "Installed ux to ${INSTALL_DIR}/ux"
     
-    # Try to add to PATH
-    local shell_rc=""
+    # Add to PATH
     if [ -n "$ZSH_VERSION" ]; then
-        shell_rc="${HOME}/.zshrc"
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null
     elif [ -n "$BASH_VERSION" ]; then
-        shell_rc="${HOME}/.bashrc"
-    fi
-    
-    if [ -n "$shell_rc" ] && [ -f "$shell_rc" ]; then
-        if ! grep -q '.local/bin' "$shell_rc"; then
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$shell_rc"
-            echo "Added to ${shell_rc}"
-            echo "Run: source ${shell_rc}"
-        fi
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc 2>/dev/null
     fi
     
     echo ""
-    echo "Usage: ux <tool> [args...]"
-    echo "Example: ux ruff -- --version"
+    echo "Usage:"
+    echo "  ux ruff -- --version"
+    echo "  ux warm ruff"
 }
 
 install
