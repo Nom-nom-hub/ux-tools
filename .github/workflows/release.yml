@@ -55,6 +55,8 @@ jobs:
           path: artifacts
 
       - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           gh release create "$TAG" \
@@ -66,6 +68,8 @@ jobs:
           NOTES
 
       - name: Upload Release Assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           for f in artifacts/ux-*; do
